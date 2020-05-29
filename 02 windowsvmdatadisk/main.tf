@@ -21,15 +21,6 @@ resource "azurerm_subnet" "subnet" {
   virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefix = "10.0.0.0/24"
 }
-resource "azurerm_public_ip" "publicip" {
-  name = "pip-eastus-001"
-  location = "eastus"
-  resource_group_name=azurerm_resource_group.rg.name
-  allocation_method   = "Static"
-  tags = {
-    Environment = "Prod"
-  }
-}
 resource "azurerm_network_security_group" "nsg" {
   name = "nsg-sshallow-001"
   location = var.location
@@ -50,14 +41,13 @@ resource "azurerm_network_interface" "nic" {
   name = "nic-01-dev-001"
   location= var.location
   resource_group_name=azurerm_resource_group.rg.name
-
   ip_configuration{
     name = "internal"
     subnet_id = azurerm_subnet.subnet.id
     private_ip_address_allocation = "dynamic"
-    public_ip_address_id = azurerm_public_ip.publicip.id
   }
 }
+
 resource "azurerm_network_interface_security_group_association" "example" {
   network_interface_id      = azurerm_network_interface.nic.id
   network_security_group_id = azurerm_network_security_group.nsg.id
@@ -76,9 +66,9 @@ resource "azurerm_virtual_machine" "vm" {
     managed_disk_type = "Standard_LRS"
   }
   storage_image_reference{
-    publisher = "Canonical"
-    offer     = "UbuntuServer"
-    sku       = "16.04-LTS"
+   publisher = "MicrosoftWindowsServer"
+    offer     = "WindowsServer"
+    sku       = "2019-Datacenter"
     version   = "latest"
   }
 os_profile {
@@ -86,8 +76,21 @@ os_profile {
     admin_username = "terrauser"
     admin_password = "Password1234!"
   }
-
-  os_profile_linux_config {
-    disable_password_authentication = false
-  }
+os_profile_windows_config{
+  timezone = "Eastern Standard Time"
+}
+}
+resource "azurerm_managed_disk" "disk01"{
+  name = "vm-disk1"
+  location = azurerm_resource_group.rg.location
+  resource_group_name=azurerm_resource_group.rg.name
+  storage_account_type="Standard_LRS"
+  create_option = "Empty"
+  disk_size_gb = 10
+}
+resource "azurerm_virtual_machine_data_disk_attachment" "disk" {
+  managed_disk_id = azurerm_managed_disk.disk01.id
+  virtual_machine_id = azurerm_virtual_machine.vm.id
+  lun = "10"
+  caching = "ReadWrite"
 }
